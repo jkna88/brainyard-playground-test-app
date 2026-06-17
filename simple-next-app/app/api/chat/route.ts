@@ -6,7 +6,7 @@ const execFileAsync = promisify(execFile);
 
 export async function POST(request: NextRequest) {
   try {
-    const { message } = await request.json();
+    const { message, attach, sessionId } = await request.json();
 
     if (!message?.trim()) {
       return NextResponse.json(
@@ -24,14 +24,24 @@ export async function POST(request: NextRequest) {
 
     const startTime = Date.now();
 
+    // Build exec args based on attach flag
+    let args: string[];
+    if (attach && sessionId) {
+      // Attach to session context
+      args = ['ask', '--attach', sessionId, '--', message.trim()];
+    } else {
+      // Free prompt with model
+      args = ['ask', '-p', 'free-llm', '-m', 'auto', '--', message.trim()];
+    }
+
     const { stdout, stderr } = await execFileAsync(
       '/usr/local/bin/by',
-      ['ask', '-p', 'free-llm', '-m', 'auto', '--', message.trim()],
+      args,
       { timeout: 130000, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
     );
 
     const elapsed = Date.now() - startTime;
-    console.log(`Chat API: by ask completed in ${elapsed}ms`);
+    console.log(`Chat API: by ask completed in ${elapsed}ms (attach=${!!attach})`);
 
     if (!stdout?.trim()) {
       return NextResponse.json(
@@ -44,7 +54,6 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     const error = err as ExecFileException & { stderr?: string; killed?: boolean; signal?: string };
     
-    // Timeout detection
     if (error.killed || error.signal === 'SIGTERM') {
       console.error('Chat API: by ask timed out');
       return NextResponse.json(
@@ -56,7 +65,6 @@ export async function POST(request: NextRequest) {
     const errorMessage = error.stderr || error.message || 'Unknown error occurred';
     console.error('Chat API error:', errorMessage);
 
-    // Return structured error
     return NextResponse.json(
       { error: errorMessage },
       { status: error.code === 'ENOENT' ? 503 : 500 }

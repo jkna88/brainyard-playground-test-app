@@ -26,9 +26,9 @@ export default function SessionSelector({
   const activeSession = sessions.find((s) => s.id === activeId);
 
   return (
-    <div className={`flex items-center gap-2 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 ${className || ''}`}>
-      <div className="shrink-0 w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-        <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <div className={`flex items-center gap-2 px-4 py-3 border-b border-zinc-200/70 dark:border-zinc-700/50 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md ${className || ''}`}>
+      <div className="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex items-center justify-center ring-1 ring-blue-500/20 dark:ring-blue-400/20 shadow-sm">
+        <svg className="w-[18px] h-[18px] text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -39,12 +39,12 @@ export default function SessionSelector({
       </div>
       <div className="flex-1 min-w-0">
         {loading ? (
-          <div className="flex items-center gap-2 px-3 py-2">
-            <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-zinc-500 dark:text-zinc-400">Loading sessions…</span>
+          <div className="flex items-center gap-2.5 px-3 py-2 bg-zinc-50/50 dark:bg-zinc-800/30 rounded-lg">
+            <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">Loading sessions…</span>
           </div>
         ) : error ? (
-          <div className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+          <div className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/30 rounded-lg border border-red-200/50 dark:border-red-800/30">
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -52,7 +52,7 @@ export default function SessionSelector({
           </div>
         ) : (
           <select
-            className={`w-full bg-transparent border border-zinc-300 dark:border-zinc-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 appearance-none cursor-pointer transition-colors ${
+            className={`w-full bg-white/50 dark:bg-zinc-800/40 backdrop-blur-sm border border-zinc-300/60 dark:border-zinc-600/60 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 appearance-none cursor-pointer transition-all duration-200 hover:border-zinc-400 dark:hover:border-zinc-500 ${
               sessions.length === 0 ? 'text-zinc-400' : ''
             }`}
             value={activeId ?? ''}
@@ -71,11 +71,11 @@ export default function SessionSelector({
           </select>
         )}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
         <button
           onClick={onCreate}
           disabled={loading}
-          className="shrink-0 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed font-medium"
+          className="shrink-0 px-3.5 py-2 text-sm bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-400 text-white rounded-lg transition-all duration-200 disabled:cursor-not-allowed font-medium shadow-sm shadow-blue-600/15 hover:shadow-md hover:shadow-blue-600/25 active:scale-95"
           title="New session"
         >
           + New
@@ -83,7 +83,7 @@ export default function SessionSelector({
         {activeId && sessions.length > 1 && (
           <button
             onClick={() => onDelete(activeId)}
-            className="shrink-0 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            className="shrink-0 p-2 text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
             title="Delete this session"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

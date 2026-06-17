@@ -12,7 +12,7 @@ interface MessageBubbleProps {
 
 function UserAvatar() {
   return (
-    <div className="shrink-0 w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold shadow-sm">
+    <div suppressHydrationWarning className="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-blue-500/20 ring-2 ring-white/40 dark:ring-zinc-800/60">
       U
     </div>
   );
@@ -20,9 +20,9 @@ function UserAvatar() {
 
 function AssistantAvatar() {
   return (
-    <div className="shrink-0 w-8 h-8 rounded-full bg-zinc-700 dark:bg-zinc-600 flex items-center justify-center text-white text-xs shadow-sm">
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+    <div suppressHydrationWarning className="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-zinc-500 to-zinc-700 dark:from-zinc-600 dark:to-zinc-800 flex items-center justify-center text-white shadow-md shadow-zinc-500/20 ring-2 ring-white/40 dark:ring-zinc-800/60">
+      <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
       </svg>
     </div>
   );
@@ -54,16 +54,16 @@ export default function MessageBubble({ message, onRetry }: MessageBubbleProps) 
   };
 
   return (
-    <div className={`flex gap-3 mb-5 group ${isUser ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex gap-3 mb-5 group animate-in fade-in slide-in-from-bottom-2 duration-300 ${isUser ? 'flex-row-reverse' : ''}`}>
       {isUser ? <UserAvatar /> : <AssistantAvatar />}
-      <div className={`max-w-[75%] ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
+      <div className={`max-w-[78%] ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
         <div
-          className={`rounded-2xl px-4 py-2.5 shadow-sm ${
+          className={`rounded-2xl px-4 py-3 shadow-sm transition-shadow hover:shadow-md ${
             isUser
-              ? 'bg-blue-600 text-white rounded-br-md'
+              ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-md shadow-blue-600/10'
               : isError
-              ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 rounded-bl-md'
-              : 'bg-zinc-50 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100 border border-zinc-200/50 dark:border-zinc-700/50 rounded-bl-md'
+              ? 'bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/40 dark:to-red-900/30 border border-red-200/80 dark:border-red-800/60 text-red-800 dark:text-red-200 rounded-bl-md shadow-red-500/5'
+              : 'bg-white/80 dark:bg-zinc-800/70 backdrop-blur-sm border border-zinc-200/60 dark:border-zinc-700/50 text-zinc-900 dark:text-zinc-100 rounded-bl-md shadow-sm'
           }`}
         >
           {isUser ? (
@@ -71,27 +71,24 @@ export default function MessageBubble({ message, onRetry }: MessageBubbleProps) 
               {message.content}
             </p>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none prose-code:before:content-none prose-code:after:content-none prose-pre:bg-zinc-800 prose-pre:border prose-pre:border-zinc-700">
+            <div className="prose prose-sm dark:prose-invert max-w-none prose-code:before:content-none prose-code:after:content-none prose-pre:bg-zinc-800/90 prose-pre:border prose-pre:border-zinc-700/60 prose-pre:shadow-inner prose-p:leading-relaxed">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  // Custom link rendering with target=_blank
                   a: ({ href, children }) => (
-                    <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                    <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline decoration-blue-400/50 underline-offset-2">
                       {children}
                     </a>
                   ),
-                  // Override code to handle inline vs block
                   code({ className, children, ...props }) {
                     const isInline = !className;
                     if (isInline) {
                       return (
-                        <code className="bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 rounded text-[13px] font-mono" {...props}>
+                        <code className="bg-zinc-200/70 dark:bg-zinc-700/70 px-1.5 py-0.5 rounded text-[13px] font-mono text-sm" {...props}>
                           {children}
                         </code>
                       );
                     }
-                    // Block code rendered by pre
                     return <code className="text-sm" {...props}>{children}</code>;
                   },
                 }}
@@ -101,16 +98,15 @@ export default function MessageBubble({ message, onRetry }: MessageBubbleProps) 
             </div>
           )}
         </div>
-        <div className={`flex items-center gap-2 mt-1 px-1 ${isUser ? 'flex-row-reverse' : ''}`}>
-          <span className={`text-[11px] ${isUser ? 'text-blue-400 dark:text-blue-300' : 'text-zinc-400 dark:text-zinc-500'}`}>
+        <div className={`flex items-center gap-2 mt-1.5 px-1 ${isUser ? 'flex-row-reverse' : ''}`}>
+          <span className={`text-[11px] font-medium ${isUser ? 'text-blue-400 dark:text-blue-300' : 'text-zinc-400 dark:text-zinc-500'}`}>
             {time}
           </span>
           <span className="text-[11px] text-zinc-300 dark:text-zinc-600">·</span>
           <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{date}</span>
-          {/* Copy button */}
           <button
             onClick={handleCopy}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+            className="opacity-0 group-hover:opacity-100 transition-all duration-200 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:scale-110 active:scale-95"
             title="Copy message"
           >
             {copyState === 'copied' ? (
@@ -123,11 +119,10 @@ export default function MessageBubble({ message, onRetry }: MessageBubbleProps) 
               </svg>
             )}
           </button>
-          {/* Retry button for errors */}
           {isError && onRetry && (
             <button
               onClick={onRetry}
-              className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+              className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-all hover:scale-110 active:scale-95"
               title="Retry sending this message"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

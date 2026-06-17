@@ -10,11 +10,9 @@ import ChatInput from '@/components/chat/ChatInput';
 function collectFailedMessages(messages: Record<string, import('@/types/chat').Message[]>, sessionId: string | null): string[] {
   if (!sessionId) return [];
   const msgs = messages[sessionId] || [];
-  // Find the last user message before an error (to retry)
   const failures: string[] = [];
   for (let i = 0; i < msgs.length; i++) {
     if (msgs[i].role === 'error') {
-      // Find preceding user message
       for (let j = i - 1; j >= 0; j--) {
         if (msgs[j].role === 'user') {
           failures.push(msgs[j].content);
@@ -32,9 +30,9 @@ export default function ChatPage() {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'error' | 'success'>('error');
+  const [attach, setAttach] = useState(false);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-dismiss toast after 5s
   const showToast = useCallback((msg: string, type: 'error' | 'success' = 'error') => {
     setToastMessage(msg);
     setToastType(type);
@@ -50,7 +48,6 @@ export default function ChatPage() {
     };
   }, []);
 
-  // Load real by sessions on mount
   useEffect(() => {
     async function loadSessions() {
       setLoadingSessions(true);
@@ -70,7 +67,6 @@ export default function ChatPage() {
           }));
           dispatch({ type: 'SET_SESSIONS', sessions: mapped });
         } else {
-          // No sessions from API — that's ok, user can create one
           dispatch({ type: 'SET_SESSIONS', sessions: [] });
         }
       } catch (err: any) {
@@ -98,7 +94,7 @@ export default function ChatPage() {
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: content }),
+          body: JSON.stringify({ message: content, attach, sessionId }),
           signal: controller.signal,
         });
 
@@ -139,7 +135,7 @@ export default function ChatPage() {
         }
       }
     },
-    [state.activeSessionId, showToast]
+    [state.activeSessionId, showToast, attach]
   );
 
   const handleRetry = useCallback(
@@ -153,7 +149,6 @@ export default function ChatPage() {
 
   const handleCreateSession = useCallback(async () => {
     const title = `Chat ${state.sessions.length + 1}`;
-    // Try to create a real by session
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
@@ -175,7 +170,6 @@ export default function ChatPage() {
         showToast('New session created', 'success');
       }
     } catch {
-      // Fallback: create a local session
       dispatch({ type: 'CREATE_SESSION', title });
       showToast('Local session created (offline mode)', 'success');
     }
@@ -190,17 +184,23 @@ export default function ChatPage() {
     : [];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-3xl mx-auto">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-zinc-50 via-white to-blue-50/40 dark:from-zinc-950 dark:via-zinc-900 dark:to-blue-950/30">
+      {/* Decorative background blobs */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-3xl" />
+      </div>
+
       {/* Toast notification */}
       {toastMessage && (
         <div
-          className={`fixed top-4 right-4 z-50 max-w-sm px-4 py-3 rounded-xl shadow-lg border transition-all animate-in slide-in-from-top-2 ${
+          className={`fixed top-4 right-4 z-50 max-w-sm px-4 py-3 rounded-xl shadow-lg border transition-all duration-300 animate-in slide-in-from-top-2 ${
             toastType === 'error'
-              ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
-              : 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
+              ? 'bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/60 dark:to-red-900/40 border-red-200 dark:border-red-800/60 text-red-800 dark:text-red-200 shadow-red-500/10'
+              : 'bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/60 dark:to-emerald-900/40 border-green-200 dark:border-green-800/60 text-green-800 dark:text-green-200 shadow-green-500/10'
           }`}
         >
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-2.5">
             {toastType === 'error' ? (
               <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -213,7 +213,7 @@ export default function ChatPage() {
             <p className="text-sm font-medium">{toastMessage}</p>
             <button
               onClick={() => setToastMessage(null)}
-              className="ml-auto shrink-0 p-0.5 hover:opacity-70"
+              className="ml-auto shrink-0 p-0.5 hover:opacity-70 transition-opacity"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -223,22 +223,30 @@ export default function ChatPage() {
         </div>
       )}
 
-      <SessionSelector
-        sessions={state.sessions}
-        activeId={state.activeSessionId}
-        onChange={(id) => dispatch({ type: 'SWITCH_SESSION', id })}
-        onCreate={handleCreateSession}
-        onDelete={handleDeleteSession}
-        loading={loadingSessions}
-        error={sessionError}
-      />
-      <ChatContainer
-        messages={currentMessages}
-        loading={state.loading}
-        activeSessionId={state.activeSessionId}
-        onRetry={handleRetry}
-      />
-      <ChatInput onSend={handleSend} disabled={!state.activeSessionId || state.loading} />
+      {/* Main content area with glassmorphism effect */}
+      <div className="relative flex flex-col h-full max-w-4xl mx-auto w-full bg-white/60 dark:bg-zinc-900/60 backdrop-blur-sm shadow-xl shadow-zinc-900/5 border-x border-zinc-200/50 dark:border-zinc-800/50">
+        <SessionSelector
+          sessions={state.sessions}
+          activeId={state.activeSessionId}
+          onChange={(id) => dispatch({ type: 'SWITCH_SESSION', id })}
+          onCreate={handleCreateSession}
+          onDelete={handleDeleteSession}
+          loading={loadingSessions}
+          error={sessionError}
+        />
+        <ChatContainer
+          messages={currentMessages}
+          loading={state.loading}
+          activeSessionId={state.activeSessionId}
+          onRetry={handleRetry}
+        />
+        <ChatInput
+          onSend={handleSend}
+          disabled={!state.activeSessionId || state.loading}
+          attach={attach}
+          onAttachChange={setAttach}
+        />
+      </div>
     </div>
   );
 }
