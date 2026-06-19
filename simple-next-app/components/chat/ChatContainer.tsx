@@ -10,9 +10,10 @@ interface ChatContainerProps {
   streamingText?: string;
   activeSessionId: string | null;
   onRetry?: (messageContent: string) => void;
+  onRemember?: (messageContent: string) => void;
 }
 
-export default function ChatContainer({ messages, loading, streamingText, activeSessionId, onRetry }: ChatContainerProps) {
+export default function ChatContainer({ messages, loading, streamingText, activeSessionId, onRetry, onRemember }: ChatContainerProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +93,7 @@ export default function ChatContainer({ messages, loading, streamingText, active
             key={msg.id}
             message={msg}
             onRetry={retryContent ? () => onRetry?.(retryContent) : undefined}
+            onRemember={msg.role === 'assistant' && onRemember ? () => onRemember(msg.content) : undefined}
           />
         );
       })}

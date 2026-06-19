@@ -127,6 +127,24 @@ export default function ChatPage() {
     }
   }, [state.activeSessionId, showToast]);
 
+  // Save a message into the session's project memory ({:op :inject :as :memory}).
+  const handleRemember = useCallback(async (content: string) => {
+    if (!state.activeSessionId || !canAttach) return;
+    const slug = `chat-note-${Date.now().toString(36)}`;
+    try {
+      const res = await fetch(`/api/sessions/${state.activeSessionId}/inject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ as: 'memory', slug, content }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      showToast('Saved to session memory', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save memory', 'error');
+    }
+  }, [state.activeSessionId, canAttach, showToast]);
+
   const handleSend = useCallback(
     async (content: string) => {
       if (!state.activeSessionId) return;
@@ -324,6 +342,7 @@ export default function ChatPage() {
           streamingText={streamingText}
           activeSessionId={state.activeSessionId}
           onRetry={handleRetry}
+          onRemember={canAttach ? handleRemember : undefined}
         />
         <ChatInput
           onSend={handleSend}

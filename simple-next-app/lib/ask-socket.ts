@@ -89,6 +89,45 @@ export async function cancelOverSocket(socketPath: string, timeoutMs = 5000): Pr
   return reply as { cancelled?: boolean };
 }
 
+export type InjectInput =
+  | { as: 'memory'; slug: string; content: string }
+  | { as: 'artifact'; name: string; content: string; pin?: boolean }
+  | { as: 'turn'; text: string; await?: boolean };
+
+export interface InjectReply {
+  status: string;
+  injected?: string;
+  slug?: string;
+  path?: string;
+  id?: string;
+  name?: string;
+  queued?: boolean;
+  error?: string;
+}
+
+/**
+ * Push data into the session via {:op :inject}. Sinks (session-channel-extensions.md §4):
+ *  - memory:   write a project memory slug (seen by recall).
+ *  - artifact: keep a named live artifact fresh (the data connector; seen next turn).
+ *  - turn:     enqueue a turn; await:false is a fire-and-forget event trigger.
+ */
+export async function injectOverSocket(
+  socketPath: string,
+  input: InjectInput,
+  timeoutMs = 15000,
+): Promise<InjectReply> {
+  let request: string;
+  if (input.as === 'memory') {
+    request = `{:op :inject :as :memory :slug "${escapeEdnString(input.slug)}" :content "${escapeEdnString(input.content)}"}`;
+  } else if (input.as === 'artifact') {
+    request = `{:op :inject :as :artifact :name "${escapeEdnString(input.name)}" :content "${escapeEdnString(input.content)}" :pin? ${input.pin ? 'true' : 'false'}}`;
+  } else {
+    request = `{:op :inject :as :turn :text "${escapeEdnString(input.text)}" :await? ${input.await ? 'true' : 'false'}}`;
+  }
+  const reply = await rpc(socketPath, request, timeoutMs);
+  return reply as unknown as InjectReply;
+}
+
 export interface Subscription {
   close(): void;
 }

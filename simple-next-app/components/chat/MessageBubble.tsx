@@ -8,6 +8,7 @@ import { useState } from 'react';
 interface MessageBubbleProps {
   message: Message;
   onRetry?: () => void;
+  onRemember?: () => void;
 }
 
 function UserAvatar() {
@@ -28,10 +29,17 @@ function AssistantAvatar() {
   );
 }
 
-export default function MessageBubble({ message, onRetry }: MessageBubbleProps) {
+export default function MessageBubble({ message, onRetry, onRemember }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isError = message.role === 'error' || message.content.startsWith('⚠️');
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const [remembered, setRemembered] = useState(false);
+
+  const handleRemember = () => {
+    onRemember?.();
+    setRemembered(true);
+    setTimeout(() => setRemembered(false), 2000);
+  };
 
   const time = new Date(message.timestamp).toLocaleTimeString(undefined, {
     hour: '2-digit',
@@ -119,6 +127,27 @@ export default function MessageBubble({ message, onRetry }: MessageBubbleProps) 
               </svg>
             )}
           </button>
+          {onRemember && (
+            <button
+              onClick={handleRemember}
+              className={`transition-all duration-200 hover:scale-110 active:scale-95 ${
+                remembered
+                  ? 'text-amber-500'
+                  : 'opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-amber-500'
+              }`}
+              title={remembered ? 'Saved to session memory' : 'Remember this in the session'}
+            >
+              {remembered ? (
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+              )}
+            </button>
+          )}
           {isError && onRetry && (
             <button
               onClick={onRetry}
