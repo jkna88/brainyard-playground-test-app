@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     const cwd = process.cwd();
     const tmuxName = `by-chat-${Date.now()}`;
-    const ownerCmd = `${shq(BY_BIN)} run --inline --agent coact-agent --working-dir ${shq(cwd)}`;
+    const ownerCmd = `${shq(BY_BIN)} run --agent coact-agent --working-dir ${shq(cwd)}`;
     await execFileAsync(
       'tmux',
       ['new-session', '-d', '-s', tmuxName, ownerCmd],

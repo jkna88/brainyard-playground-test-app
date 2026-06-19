@@ -7,6 +7,12 @@ export interface Session {
   live?: boolean;
   /** Capability set advertised by the session's ask.sock (e.g. ['ask','status']). */
   ops?: string[];
+  /**
+   * Path to the bound ask.sock. Present only when the owner successfully bound
+   * the listener — this is the authoritative "attachable" signal for
+   * `by ask --attach`. Null/absent means attach will fail.
+   */
+  askSocketPath?: string | null;
 }
 
 /**

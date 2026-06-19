@@ -28,17 +28,19 @@ export async function POST(request: NextRequest) {
 
     const startTime = Date.now();
 
-    // Build exec args based on attach flag
+    // Build exec args based on attach flag. `--json` makes `by ask` emit a single
+    // machine-readable object on stdout ({success, answer, error, …}); the human
+    // "LM configured" banner goes to stderr, so stdout stays clean to parse.
     let args: string[];
     if (attach && sessionId) {
       // Attach to session context
-      args = ['ask', '--attach', sessionId, '--', message.trim()];
+      args = ['ask', '--attach', sessionId, '--json', '--', message.trim()];
     } else {
       // Free prompt with model
-      args = ['ask', '-p', 'free-llm', '-m', 'auto', '--', message.trim()];
+      args = ['ask', '-p', 'free-llm', '-m', 'auto', '--json', '--', message.trim()];
     }
 
-    const { stdout, stderr } = await execFileAsync(
+    const { stdout } = await execFileAsync(
       BY_BIN,
       args,
       { timeout: 130000, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
@@ -54,7 +56,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ answer: stdout.trim() });
+    let result: { success?: boolean; answer?: string; error?: string };
+    try {
+      result = JSON.parse(stdout);
+    } catch {
+      console.error('Chat API: failed to parse by ask JSON:', stdout.slice(0, 500));
+      return NextResponse.json(
+        { error: 'AI returned a malformed response' },
+        { status: 502 }
+      );
+    }
+
+    // `by` reports hard failures as success:false; an agent that stops mid-run
+    // reports success:true with the stop notice as its answer. Treat both as errors.
+    const answer = result.answer?.trim();
+    if (result.success === false || (answer && answer.startsWith('Agent stopped:'))) {
+      return NextResponse.json(
+        { error: result.error || answer || 'The AI agent failed to produce a response' },
+        { status: 502 }
+      );
+    }
+
+    if (!answer) {
+      return NextResponse.json(
+        { error: 'AI returned an empty response' },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ answer });
   } catch (err: unknown) {
     const error = err as ExecFileException & { stderr?: string; killed?: boolean; signal?: string };
     

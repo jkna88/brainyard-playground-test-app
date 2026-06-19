@@ -16,6 +16,7 @@ function mapSession(s: BySessionRow): Session {
     live: s['live?'] ?? false,
     // Normalize Clojure keyword serialization (strip any leading ':').
     ops: Array.isArray(s.ops) ? s.ops.map((o) => String(o).replace(/^:/, '')) : undefined,
+    askSocketPath: s['ask-socket-path'] ?? null,
   };
 }
 
@@ -70,9 +71,10 @@ export default function ChatPage() {
   }, [showToast]);
 
   const activeSession = state.sessions.find((s) => s.id === state.activeSessionId) ?? null;
-  // `by ask --attach` requires a live owner that advertises the `ask` op
-  // (session-channel-extensions.md §1.2/§2.1). Otherwise fall back to a free prompt.
-  const canAttach = !!activeSession?.live && (!activeSession.ops || activeSession.ops.includes('ask'));
+  // `by ask --attach` can only reach a session whose owner actually bound its
+  // ask.sock. A valid :ask-socket-path is the authoritative attachable signal —
+  // `live?` alone isn't enough (e.g. a bind that failed). Otherwise: free prompt.
+  const canAttach = !!activeSession?.askSocketPath;
 
   const handleSend = useCallback(
     async (content: string) => {
