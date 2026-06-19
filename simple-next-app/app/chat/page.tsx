@@ -76,6 +76,13 @@ export default function ChatPage() {
   // `live?` alone isn't enough (e.g. a bind that failed). Otherwise: free prompt.
   const canAttach = !!activeSession?.askSocketPath;
 
+  // Default the toggle to attachability: turn it on when the active session can
+  // be attached, off when it can't. Keyed on the session + its attachability so
+  // a manual toggle within a session is preserved (this only fires on a change).
+  useEffect(() => {
+    setAttach(canAttach);
+  }, [state.activeSessionId, canAttach]);
+
   const handleSend = useCallback(
     async (content: string) => {
       if (!state.activeSessionId) return;
