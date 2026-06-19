@@ -1,0 +1,10 @@
+# Brainyard runtime/session data (per-project sessions, memory, sockets metadata)
+.brainyard/
+
+# oh-my-claudecode tooling state
+.omc/
+
+# Environment / secrets (e.g. by CLI provider config)
+.env
+.env.local
+.env.*.local

@@ -1,12 +1,17 @@
 # Brainyard Chat
 
-A [Next.js](https://nextjs.org) chat UI for the **Brainyard `by` CLI**. The browser talks
-to two API routes that shell out to `by`; there is no separate AI backend — the CLI is the
-backend.
+A [Next.js](https://nextjs.org) chat UI for the **Brainyard `by` CLI**. There is no separate
+AI backend — the CLI is the backend. Sessions are created by shelling out to `by`, but live
+interaction with a session goes **directly over its `ask.sock`** (a per-session AF_UNIX
+socket speaking newline-delimited EDN), not through a `by` subprocess.
 
-- `GET /api/sessions` → `by sessions list --live --json` (only sessions with a live owner)
+- `GET  /api/sessions` → `by sessions list --live --json` (only sessions with a live owner)
 - `POST /api/sessions` → starts a real session owner with `by run` (see below)
-- `POST /api/chat` → `by ask --attach <id>` (Attach on) or `by ask -p free-llm` (Attach off)
+- `POST /api/chat` → Attach on: `{:op :ask}` over the socket; Attach off: `by ask -p free-llm`
+- `GET  /api/sessions/[id]/status` → `{:op :status}` (idle/running, model, queued)
+- `POST /api/sessions/[id]/cancel` → `{:op :cancel}` (stop the running turn)
+- `GET  /api/sessions/[id]/stream` → SSE over `{:op :subscribe [:display]}` (live output)
+- `POST /api/sessions/[id]/inject` → `{:op :inject}` (memory / artifact / turn sinks)
 
 ## Prerequisites
 
@@ -52,8 +57,26 @@ Open [http://localhost:3000](http://localhost:3000), then go to **/chat**:
 
 1. Click **+ New** to create a session (spawns a `by run` owner — takes a couple of seconds).
 2. Pick a `●` live session and type a message.
-3. Toggle **Attach** on to send into that session's context (`by ask --attach`); off sends a
+3. Toggle **Attach** on to send into that session's context (over `ask.sock`); off sends a
    free one-shot prompt (`by ask -p free-llm`).
+
+## Live session features (the `ask.sock` protocol)
+
+When a session is attachable (its `ask-socket-path` is bound), the app talks to it directly
+over the socket — see Brainyard's `ask-attach-channel.md` / `session-channel-extensions.md`:
+
+- **Send (`:ask`)** — Attach messages are injected into the live session's turn queue, so the
+  answer sees its full context (memory, working dir, task roster). No `by` subprocess.
+- **Status chip (`:status`)** — a live `Idle/Running · model · queued` indicator, polled while
+  a turn runs.
+- **Stop (`:cancel`)** — a Stop button cancels the in-flight turn (same path as Ctrl-C; the
+  agent stops at the next iteration boundary).
+- **Live output (`:subscribe [:display]`)** — while an attach turn runs, the session's rendered
+  output is streamed over SSE (ANSI-stripped) into a terminal-style bubble, then replaced by
+  the clean answer. Most useful on multi-step / tool-using turns.
+- **Remember (`:inject :as :memory`)** — a bookmark on assistant messages saves the text to the
+  project's `.brainyard/memory/`. The inject route also exposes the `:artifact` and `:turn`
+  (fire-and-forget event trigger) sinks for external connectors.
 
 ## Scripts
 
@@ -68,12 +91,20 @@ Open [http://localhost:3000](http://localhost:3000), then go to **/chat**:
 
 ```
 app/
-  api/chat/route.ts      # POST → by ask (attach or free prompt)
-  api/sessions/route.ts  # GET → list live sessions; POST → spawn a by run owner
-  chat/page.tsx          # chat orchestrator (state, fetch, attach gating)
-components/chat/         # SessionSelector, ChatContainer, MessageBubble, ChatInput
-lib/chat-store.ts        # useReducer state + localStorage persistence
-types/chat.ts            # Session, Message, BySessionRow
+  api/chat/route.ts            # POST → :ask over socket (attach) or by ask (free)
+  api/sessions/route.ts        # GET → list live; POST → spawn a by run owner (tmux)
+  api/sessions/[id]/status     # GET → {:op :status}
+  api/sessions/[id]/cancel     # POST → {:op :cancel}
+  api/sessions/[id]/stream     # GET → SSE over {:op :subscribe [:display]}
+  api/sessions/[id]/inject     # POST → {:op :inject} (memory/artifact/turn)
+  chat/page.tsx                # chat orchestrator (state, fetch, attach gating, streaming)
+components/chat/               # SessionSelector, ChatContainer, MessageBubble, ChatInput
+lib/by.ts                      # BY_BIN, listLiveSessions, resolveAskSocketPath
+lib/ask-socket.ts              # ask.sock client: ask/status/cancel/subscribe/inject
+lib/edn.ts                     # minimal EDN reader + string escaper for the wire
+lib/ansi.ts                    # strip ANSI from :display chunks
+lib/chat-store.ts              # useReducer state + localStorage persistence
+types/chat.ts                  # Session, Message, BySessionRow
 ```
 
 ## Deploying
