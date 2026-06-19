@@ -1,11 +1,43 @@
 import { resolveAskSocketPath } from '@/lib/by';
 import { subscribeOverSocket, type Subscription } from '@/lib/ask-socket';
-import { stripAnsi } from '@/lib/ansi';
 
 // GET /api/sessions/<id>/stream — Server-Sent Events bridge over the session's
-// ask.sock {:op :subscribe [:display]}. Each :display frame's rendered text
-// (ANSI-stripped) is forwarded as an SSE `data:` line so the browser can show
-// the agent working live while a turn runs.
+// ask.sock. Subscribes to lifecycle hooks and forwards a structured activity
+// feed (the agent's reasoning + tool calls) so the browser shows what the agent
+// is actually doing while a turn runs — far more useful than raw :display.
+
+function firstString(v: unknown): string | null {
+  if (typeof v === 'string') return v;
+  if (v && typeof v === 'object') {
+    for (const val of Object.values(v as Record<string, unknown>)) {
+      if (typeof val === 'string' && val.trim()) return val;
+    }
+  }
+  return null;
+}
+
+function toActivity(frame: Record<string, unknown>): Record<string, unknown> | null {
+  const payload = (frame.payload ?? {}) as Record<string, unknown>;
+  switch (frame.event) {
+    case 'agent.tool-use/pre': {
+      const tool = String(payload['tool-name'] ?? 'tool');
+      const args = payload.args as Record<string, unknown> | undefined;
+      const detail = firstString(args?.command) ?? firstString(args) ?? '';
+      return { type: 'tool', tool, detail: detail.slice(0, 240) };
+    }
+    case 'agent.iteration/post': {
+      const reasoning = payload['last-reasoning'];
+      if (typeof reasoning === 'string' && reasoning.trim()) {
+        return { type: 'reasoning', text: reasoning.slice(0, 500), iteration: payload.iteration };
+      }
+      return null;
+    }
+    case 'agent.code-eval/pre':
+      return { type: 'tool', tool: 'code', detail: '' };
+    default:
+      return null;
+  }
+}
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const socketPath = await resolveAskSocketPath(id);
@@ -32,11 +64,10 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
 
       sub = subscribeOverSocket(
         socketPath!,
-        ['display'],
+        ['agent.tool-use/pre', 'agent.iteration/post', 'agent.code-eval/pre'],
         (frame) => {
-          const payload = frame.payload as { text?: unknown } | undefined;
-          const text = stripAnsi(String(payload?.text ?? ''));
-          if (text) send({ type: 'display', text });
+          const activity = toActivity(frame);
+          if (activity) send(activity);
         },
         () => shutdown(),
       );

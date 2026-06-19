@@ -2,7 +2,7 @@
 
 import { useReducer, useCallback, useEffect, useState, useRef } from 'react';
 import { chatReducer, getInitialState } from '@/lib/chat-store';
-import { Session, BySessionRow } from '@/types/chat';
+import { Session, BySessionRow, ActivityItem } from '@/types/chat';
 import SessionSelector from '@/components/chat/SessionSelector';
 import ChatContainer from '@/components/chat/ChatContainer';
 import ChatInput from '@/components/chat/ChatInput';
@@ -28,7 +28,7 @@ export default function ChatPage() {
   const [toastType, setToastType] = useState<'error' | 'success'>('error');
   const [attach, setAttach] = useState(false);
   const [sessionStatus, setSessionStatus] = useState<{ state?: string; model?: string; pendingTurns?: number } | null>(null);
-  const [streamingText, setStreamingText] = useState('');
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [attachSyncedFor, setAttachSyncedFor] = useState<string>('');
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -152,18 +152,18 @@ export default function ChatPage() {
 
       dispatch({ type: 'SEND_MESSAGE', content });
 
-      // For attach turns, stream the session's live rendered output over SSE so
-      // the user watches the agent work while the answer is produced.
+      // For attach turns, stream the session's live activity (reasoning + tool
+      // calls) over SSE so the user sees what the agent is doing.
       const streaming = attach && canAttach;
       let es: EventSource | null = null;
       if (streaming) {
-        setStreamingText('');
+        setActivity([]);
         es = new EventSource(`/api/sessions/${sessionId}/stream`);
         es.onmessage = (e) => {
           try {
-            const frame = JSON.parse(e.data);
-            if (frame.type === 'display') {
-              setStreamingText((prev) => (prev + frame.text).slice(-4000));
+            const item = JSON.parse(e.data);
+            if (item.type === 'reasoning' || item.type === 'tool') {
+              setActivity((prev) => [...prev, item as ActivityItem].slice(-12));
             }
           } catch {
             // ignore malformed frame
@@ -216,7 +216,7 @@ export default function ChatPage() {
         }
       } finally {
         es?.close();
-        setStreamingText('');
+        setActivity([]);
       }
     },
     [state.activeSessionId, showToast, attach, canAttach]
@@ -339,7 +339,7 @@ export default function ChatPage() {
         <ChatContainer
           messages={currentMessages}
           loading={state.loading}
-          streamingText={streamingText}
+          activity={activity}
           activeSessionId={state.activeSessionId}
           onRetry={handleRetry}
           onRemember={canAttach ? handleRemember : undefined}

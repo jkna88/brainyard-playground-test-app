@@ -34,6 +34,11 @@ export interface BySessionRow {
   [key: string]: unknown;
 }
 
+/** A live activity item streamed from the session's lifecycle hooks during a turn. */
+export type ActivityItem =
+  | { type: 'reasoning'; text: string; iteration?: number }
+  | { type: 'tool'; tool: string; detail?: string };
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'error';
