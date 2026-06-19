@@ -73,13 +73,27 @@ export default function ChatContainer({ messages, loading, activeSessionId, onRe
           </div>
         </div>
       )}
-      {messages.map((msg) => (
-        <MessageBubble
-          key={msg.id}
-          message={msg}
-          onRetry={msg.role === 'user' || msg.content.startsWith('⚠️') ? () => onRetry?.(msg.content.replace(/^⚠️ Error: /, '').replace(/^⚠️ Network error: /, '')) : undefined}
-        />
-      ))}
+      {messages.map((msg, idx) => {
+        // Retry is only surfaced on error bubbles (see MessageBubble). Resend the
+        // user message that triggered the error, not the error text itself.
+        let found: string | undefined;
+        if (msg.role === 'error') {
+          for (let j = idx - 1; j >= 0; j--) {
+            if (messages[j].role === 'user') {
+              found = messages[j].content;
+              break;
+            }
+          }
+        }
+        const retryContent = found; // const so TS narrows it inside the closure below
+        return (
+          <MessageBubble
+            key={msg.id}
+            message={msg}
+            onRetry={retryContent ? () => onRetry?.(retryContent) : undefined}
+          />
+        );
+      })}
       {loading && (
         <div className="flex gap-3 mb-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-zinc-500 to-zinc-700 dark:from-zinc-600 dark:to-zinc-800 flex items-center justify-center text-white shadow-md shadow-zinc-500/20 ring-2 ring-white/40 dark:ring-zinc-800/60">

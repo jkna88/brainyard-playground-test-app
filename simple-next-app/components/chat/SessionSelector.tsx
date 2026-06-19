@@ -23,8 +23,6 @@ export default function SessionSelector({
   error,
   className,
 }: SessionSelectorProps) {
-  const activeSession = sessions.find((s) => s.id === activeId);
-
   return (
     <div className={`flex items-center gap-2 px-4 py-3 border-b border-zinc-200/70 dark:border-zinc-700/50 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md ${className || ''}`}>
       <div className="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex items-center justify-center ring-1 ring-blue-500/20 dark:ring-blue-400/20 shadow-sm">
@@ -63,11 +61,15 @@ export default function SessionSelector({
                 No sessions — create one
               </option>
             )}
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.title.length > 48 ? s.title.slice(0, 48) + '…' : s.title}
-              </option>
-            ))}
+            {sessions.map((s) => {
+              const label = s.title.length > 48 ? s.title.slice(0, 48) + '…' : s.title;
+              // ● marks a session with a live owner (attachable) — see by sessions list --live.
+              return (
+                <option key={s.id} value={s.id}>
+                  {s.live ? `● ${label}` : `○ ${label}`}
+                </option>
+              );
+            })}
           </select>
         )}
       </div>

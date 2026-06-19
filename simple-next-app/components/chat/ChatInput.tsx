@@ -7,10 +7,11 @@ interface ChatInputProps {
   disabled: boolean;
   placeholder?: string;
   attach?: boolean;
+  attachDisabled?: boolean;
   onAttachChange?: (checked: boolean) => void;
 }
 
-export default function ChatInput({ onSend, disabled, placeholder, attach, onAttachChange }: ChatInputProps) {
+export default function ChatInput({ onSend, disabled, placeholder, attach, attachDisabled, onAttachChange }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const maxChars = 4000;
@@ -81,10 +82,20 @@ export default function ChatInput({ onSend, disabled, placeholder, attach, onAtt
         </div>
         {/* Attach toggle */}
         {onAttachChange !== undefined && (
-          <label className="shrink-0 flex items-center gap-1.5 cursor-pointer select-none py-1" title={attach ? 'Attached to session — uses by ask --attach' : 'Free prompt — uses by ask -p free-llm'}>
+          <label
+            className={`shrink-0 flex items-center gap-1.5 select-none py-1 ${attachDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+            title={
+              attachDisabled
+                ? 'Attach unavailable — this session has no live owner process'
+                : attach
+                ? 'Attached to session — uses by ask --attach'
+                : 'Free prompt — uses by ask -p free-llm'
+            }
+          >
             <input
               type="checkbox"
               checked={!!attach}
+              disabled={attachDisabled}
               onChange={(e) => onAttachChange(e.target.checked)}
               className="sr-only peer"
             />

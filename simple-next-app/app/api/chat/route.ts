@@ -4,6 +4,10 @@ import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
+// Path to the Brainyard CLI. Override with BY_BIN when `by` isn't at the default
+// location (e.g. a per-user install under ~/.local/bin).
+const BY_BIN = process.env.BY_BIN || '/usr/local/bin/by';
+
 export async function POST(request: NextRequest) {
   try {
     const { message, attach, sessionId } = await request.json();
@@ -35,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { stdout, stderr } = await execFileAsync(
-      '/usr/local/bin/by',
+      BY_BIN,
       args,
       { timeout: 130000, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
     );

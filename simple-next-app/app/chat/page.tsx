@@ -2,26 +2,21 @@
 
 import { useReducer, useCallback, useEffect, useState, useRef } from 'react';
 import { chatReducer, getInitialState } from '@/lib/chat-store';
-import { Session } from '@/types/chat';
+import { Session, BySessionRow } from '@/types/chat';
 import SessionSelector from '@/components/chat/SessionSelector';
 import ChatContainer from '@/components/chat/ChatContainer';
 import ChatInput from '@/components/chat/ChatInput';
 
-function collectFailedMessages(messages: Record<string, import('@/types/chat').Message[]>, sessionId: string | null): string[] {
-  if (!sessionId) return [];
-  const msgs = messages[sessionId] || [];
-  const failures: string[] = [];
-  for (let i = 0; i < msgs.length; i++) {
-    if (msgs[i].role === 'error') {
-      for (let j = i - 1; j >= 0; j--) {
-        if (msgs[j].role === 'user') {
-          failures.push(msgs[j].content);
-          break;
-        }
-      }
-    }
-  }
-  return failures;
+function mapSession(s: BySessionRow): Session {
+  return {
+    id: s['session-id'],
+    title: s.label || s['first-user-input']?.slice(0, 50) || s['session-id'],
+    createdAt: s['started-at'] || Date.now(),
+    lastActivity: s['last-attached-at'] || Date.now(),
+    live: s['live?'] ?? false,
+    // Normalize Clojure keyword serialization (strip any leading ':').
+    ops: Array.isArray(s.ops) ? s.ops.map((o) => String(o).replace(/^:/, '')) : undefined,
+  };
 }
 
 export default function ChatPage() {
@@ -54,23 +49,17 @@ export default function ChatPage() {
       setSessionError(null);
       try {
         const res = await fetch('/api/sessions');
-        const data = await res.json();
+        const data: { sessions?: BySessionRow[]; error?: string } = await res.json();
         if (!res.ok) {
           throw new Error(data.error || `HTTP ${res.status}`);
         }
         if (data.sessions && data.sessions.length > 0) {
-          const mapped: Session[] = data.sessions.map((s: any) => ({
-            id: s['session-id'],
-            title: s.label || s['first-user-input']?.slice(0, 50) || s['session-id'],
-            createdAt: s['started-at'] || Date.now(),
-            lastActivity: s['last-attached-at'] || Date.now(),
-          }));
-          dispatch({ type: 'SET_SESSIONS', sessions: mapped });
+          dispatch({ type: 'SET_SESSIONS', sessions: data.sessions.map(mapSession) });
         } else {
           dispatch({ type: 'SET_SESSIONS', sessions: [] });
         }
-      } catch (err: any) {
-        const msg = err.message || 'Failed to load sessions';
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to load sessions';
         setSessionError(msg);
         showToast(msg, 'error');
       } finally {
@@ -79,6 +68,11 @@ export default function ChatPage() {
     }
     loadSessions();
   }, [showToast]);
+
+  const activeSession = state.sessions.find((s) => s.id === state.activeSessionId) ?? null;
+  // `by ask --attach` requires a live owner that advertises the `ask` op
+  // (session-channel-extensions.md §1.2/§2.1). Otherwise fall back to a free prompt.
+  const canAttach = !!activeSession?.live && (!activeSession.ops || activeSession.ops.includes('ask'));
 
   const handleSend = useCallback(
     async (content: string) => {
@@ -94,7 +88,7 @@ export default function ChatPage() {
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: content, attach, sessionId }),
+          body: JSON.stringify({ message: content, attach: attach && canAttach, sessionId }),
           signal: controller.signal,
         });
 
@@ -117,8 +111,8 @@ export default function ChatPage() {
         } else {
           throw new Error('Empty response from server');
         }
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
           dispatch({
             type: 'RECEIVE_ERROR',
             sessionId,
@@ -126,16 +120,13 @@ export default function ChatPage() {
           });
           showToast('Request timed out', 'error');
         } else {
-          dispatch({
-            type: 'RECEIVE_ERROR',
-            sessionId,
-            error: error.message || 'Network error',
-          });
-          showToast(error.message || 'Network error', 'error');
+          const msg = error instanceof Error ? error.message : 'Network error';
+          dispatch({ type: 'RECEIVE_ERROR', sessionId, error: msg });
+          showToast(msg, 'error');
         }
       }
     },
-    [state.activeSessionId, showToast, attach]
+    [state.activeSessionId, showToast, attach, canAttach]
   );
 
   const handleRetry = useCallback(
@@ -158,15 +149,9 @@ export default function ChatPage() {
       if (!res.ok) {
         throw new Error('Failed to create session via API');
       }
-      const data = await res.json();
+      const data: { sessions?: BySessionRow[] } = await res.json();
       if (data.sessions) {
-        const mapped: Session[] = data.sessions.map((s: any) => ({
-          id: s['session-id'],
-          title: s.label || s['first-user-input']?.slice(0, 50) || s['session-id'],
-          createdAt: s['started-at'] || Date.now(),
-          lastActivity: s['last-attached-at'] || Date.now(),
-        }));
-        dispatch({ type: 'SET_SESSIONS', sessions: mapped });
+        dispatch({ type: 'SET_SESSIONS', sessions: data.sessions.map(mapSession) });
         showToast('New session created', 'success');
       }
     } catch {
@@ -243,7 +228,8 @@ export default function ChatPage() {
         <ChatInput
           onSend={handleSend}
           disabled={!state.activeSessionId || state.loading}
-          attach={attach}
+          attach={attach && canAttach}
+          attachDisabled={!canAttach}
           onAttachChange={setAttach}
         />
       </div>
