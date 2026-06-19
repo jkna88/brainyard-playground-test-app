@@ -28,6 +28,7 @@ export default function ChatPage() {
   const [toastType, setToastType] = useState<'error' | 'success'>('error');
   const [attach, setAttach] = useState(false);
   const [sessionStatus, setSessionStatus] = useState<{ state?: string; model?: string; pendingTurns?: number } | null>(null);
+  const [streamingText, setStreamingText] = useState('');
   const [attachSyncedFor, setAttachSyncedFor] = useState<string>('');
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -133,6 +134,25 @@ export default function ChatPage() {
 
       dispatch({ type: 'SEND_MESSAGE', content });
 
+      // For attach turns, stream the session's live rendered output over SSE so
+      // the user watches the agent work while the answer is produced.
+      const streaming = attach && canAttach;
+      let es: EventSource | null = null;
+      if (streaming) {
+        setStreamingText('');
+        es = new EventSource(`/api/sessions/${sessionId}/stream`);
+        es.onmessage = (e) => {
+          try {
+            const frame = JSON.parse(e.data);
+            if (frame.type === 'display') {
+              setStreamingText((prev) => (prev + frame.text).slice(-4000));
+            }
+          } catch {
+            // ignore malformed frame
+          }
+        };
+      }
+
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 130000);
@@ -176,6 +196,9 @@ export default function ChatPage() {
           dispatch({ type: 'RECEIVE_ERROR', sessionId, error: msg });
           showToast(msg, 'error');
         }
+      } finally {
+        es?.close();
+        setStreamingText('');
       }
     },
     [state.activeSessionId, showToast, attach, canAttach]
@@ -298,6 +321,7 @@ export default function ChatPage() {
         <ChatContainer
           messages={currentMessages}
           loading={state.loading}
+          streamingText={streamingText}
           activeSessionId={state.activeSessionId}
           onRetry={handleRetry}
         />

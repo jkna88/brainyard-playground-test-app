@@ -7,17 +7,18 @@ import MessageBubble from './MessageBubble';
 interface ChatContainerProps {
   messages: Message[];
   loading: boolean;
+  streamingText?: string;
   activeSessionId: string | null;
   onRetry?: (messageContent: string) => void;
 }
 
-export default function ChatContainer({ messages, loading, activeSessionId, onRetry }: ChatContainerProps) {
+export default function ChatContainer({ messages, loading, streamingText, activeSessionId, onRetry }: ChatContainerProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, messages.length, loading]);
+  }, [messages, messages.length, loading, streamingText]);
 
   if (!activeSessionId) {
     return (
@@ -101,13 +102,26 @@ export default function ChatContainer({ messages, loading, activeSessionId, onRe
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
             </svg>
           </div>
-          <div className="bg-white/80 dark:bg-zinc-800/70 backdrop-blur-sm border border-zinc-200/60 dark:border-zinc-700/50 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm max-w-[78%]">
-            <div className="flex gap-1.5">
-              <span className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          {streamingText ? (
+            <div className="bg-zinc-900/95 dark:bg-black/60 border border-zinc-700/60 rounded-2xl rounded-bl-md px-3.5 py-2.5 shadow-sm max-w-[78%] overflow-hidden">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium">live output</span>
+              </div>
+              <pre className="text-[11px] leading-snug font-mono whitespace-pre-wrap break-words text-zinc-300 max-h-44 overflow-hidden">
+                {streamingText.split('\n').slice(-12).join('\n')}
+                <span className="inline-block w-1.5 h-3.5 -mb-0.5 ml-0.5 bg-emerald-400/80 animate-pulse" />
+              </pre>
             </div>
-          </div>
+          ) : (
+            <div className="bg-white/80 dark:bg-zinc-800/70 backdrop-blur-sm border border-zinc-200/60 dark:border-zinc-700/50 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm max-w-[78%]">
+              <div className="flex gap-1.5">
+                <span className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          )}
         </div>
       )}
       <div ref={bottomRef} />

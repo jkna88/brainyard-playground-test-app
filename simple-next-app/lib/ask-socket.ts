@@ -88,3 +88,55 @@ export async function cancelOverSocket(socketPath: string, timeoutMs = 5000): Pr
   const reply = await rpc(socketPath, '{:op :cancel}', timeoutMs);
   return reply as { cancelled?: boolean };
 }
+
+export interface Subscription {
+  close(): void;
+}
+
+/**
+ * Mode B: open a held-open subscription for the given events and invoke `onFrame`
+ * for every event frame (the initial `{:status :ok :subscribed …}` ack is
+ * skipped). The connection stays open until `close()` or the server EOFs.
+ */
+export function subscribeOverSocket(
+  socketPath: string,
+  events: string[],
+  onFrame: (frame: Record<string, unknown>) => void,
+  onClose?: (err?: Error) => void,
+): Subscription {
+  const sock = net.createConnection({ path: socketPath });
+  sock.setEncoding('utf8');
+  let buf = '';
+  let closed = false;
+  const finish = (err?: Error) => {
+    if (closed) return;
+    closed = true;
+    onClose?.(err);
+  };
+
+  sock.on('connect', () => {
+    const eventList = events.map((e) => `:${e}`).join(' ');
+    sock.write(`{:op :subscribe :events [${eventList}]}\n`);
+  });
+  sock.on('data', (chunk: string) => {
+    buf += chunk;
+    let nl: number;
+    while ((nl = buf.indexOf('\n')) !== -1) {
+      const line = buf.slice(0, nl);
+      buf = buf.slice(nl + 1);
+      if (!line.trim()) continue;
+      try {
+        const frame = parseEdn(line);
+        if (frame && typeof frame === 'object' && 'event' in (frame as object)) {
+          onFrame(frame as Record<string, unknown>);
+        }
+      } catch {
+        // skip an unparseable frame rather than tearing down the stream
+      }
+    }
+  });
+  sock.on('error', (e: Error) => finish(e));
+  sock.on('close', () => finish());
+
+  return { close: () => sock.destroy() };
+}
