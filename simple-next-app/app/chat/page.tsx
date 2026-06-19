@@ -27,6 +27,8 @@ export default function ChatPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'error' | 'success'>('error');
   const [attach, setAttach] = useState(false);
+  const [sessionStatus, setSessionStatus] = useState<{ state?: string; model?: string; pendingTurns?: number } | null>(null);
+  const [attachSyncedFor, setAttachSyncedFor] = useState<string>('');
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = useCallback((msg: string, type: 'error' | 'success' = 'error') => {
@@ -76,12 +78,53 @@ export default function ChatPage() {
   // `live?` alone isn't enough (e.g. a bind that failed). Otherwise: free prompt.
   const canAttach = !!activeSession?.askSocketPath;
 
-  // Default the toggle to attachability: turn it on when the active session can
-  // be attached, off when it can't. Keyed on the session + its attachability so
-  // a manual toggle within a session is preserved (this only fires on a change).
-  useEffect(() => {
+  // Default the toggle to attachability when the active session (or its
+  // attachability) changes — on when attachable, off otherwise. Done during
+  // render per React's "adjust state on change" pattern; a manual toggle within
+  // a session is preserved because the key only moves when the session does.
+  const attachSyncKey = `${state.activeSessionId ?? ''}:${canAttach}`;
+  if (attachSyncKey !== attachSyncedFor) {
+    setAttachSyncedFor(attachSyncKey);
     setAttach(canAttach);
-  }, [state.activeSessionId, canAttach]);
+  }
+
+  // Live session status ({:op :status} over the socket): fetched on session
+  // change and polled while a turn is running, so the chip reflects idle/running.
+  useEffect(() => {
+    const id = state.activeSessionId;
+    let alive = true;
+    const tick = async () => {
+      if (!id || !canAttach) {
+        if (alive) setSessionStatus(null);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/sessions/${id}/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (alive) {
+          setSessionStatus({ state: data.state, model: data.model, pendingTurns: data['pending-turns'] });
+        }
+      } catch {
+        // status is best-effort; ignore transient failures
+      }
+    };
+    tick();
+    if (!id || !canAttach || !state.loading) return () => { alive = false; };
+    const interval = setInterval(tick, 2000);
+    return () => { alive = false; clearInterval(interval); };
+  }, [state.activeSessionId, canAttach, state.loading]);
+
+  const handleStop = useCallback(async () => {
+    if (!state.activeSessionId) return;
+    try {
+      const res = await fetch(`/api/sessions/${state.activeSessionId}/cancel`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast('Stopping the current turn…', 'success');
+    } catch {
+      showToast('Failed to stop the turn', 'error');
+    }
+  }, [state.activeSessionId, showToast]);
 
   const handleSend = useCallback(
     async (content: string) => {
@@ -228,6 +271,30 @@ export default function ChatPage() {
           loading={loadingSessions}
           error={sessionError}
         />
+        {canAttach && sessionStatus && (
+          <div className="flex items-center gap-2 px-4 py-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 border-b border-zinc-200/50 dark:border-zinc-800/40 bg-white/40 dark:bg-zinc-900/40">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                sessionStatus.state === 'running'
+                  ? 'bg-amber-500 animate-pulse'
+                  : 'bg-emerald-500'
+              }`}
+            />
+            <span className="font-medium">{sessionStatus.state === 'running' ? 'Running' : 'Idle'}</span>
+            {sessionStatus.model && (
+              <>
+                <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                <span className="font-mono">{sessionStatus.model}</span>
+              </>
+            )}
+            {!!sessionStatus.pendingTurns && sessionStatus.pendingTurns > 0 && (
+              <>
+                <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                <span>{sessionStatus.pendingTurns} queued</span>
+              </>
+            )}
+          </div>
+        )}
         <ChatContainer
           messages={currentMessages}
           loading={state.loading}
@@ -240,6 +307,8 @@ export default function ChatPage() {
           attach={attach && canAttach}
           attachDisabled={!canAttach}
           onAttachChange={setAttach}
+          loading={state.loading}
+          onStop={canAttach ? handleStop : undefined}
         />
       </div>
     </div>

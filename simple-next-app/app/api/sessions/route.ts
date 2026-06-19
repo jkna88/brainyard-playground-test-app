@@ -2,33 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { BySessionRow } from '@/types/chat';
+import { BY_BIN, listLiveSessions } from '@/lib/by';
 
 const execFileAsync = promisify(execFile);
-
-// Path to the Brainyard CLI. Override with BY_BIN when `by` isn't at the default
-// location (e.g. a per-user install under ~/.local/bin).
-const BY_BIN = process.env.BY_BIN || '/usr/local/bin/by';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Single-quote for safe interpolation into the `sh -c` string tmux runs.
 const shq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
-
-function parseSessions(stdout: string): BySessionRow[] {
-  const parsed = JSON.parse(stdout);
-  return Array.isArray(parsed) ? (parsed as BySessionRow[]) : [];
-}
-
-// `--live` restricts the list to sessions with a live owner process — the only
-// ones `by ask --attach` can reach (session-channel-extensions.md §2.1/§2.2).
-async function listLiveSessions(): Promise<BySessionRow[]> {
-  const { stdout } = await execFileAsync(
-    BY_BIN,
-    ['sessions', 'list', '--live', '--json'],
-    { timeout: 10000, encoding: 'utf-8' }
-  );
-  return parseSessions(stdout);
-}
 
 // Trim long fields for transport; the spread preserves `live?` / `ops` so the
 // client can tell which sessions are attachable (see session-channel-extensions.md §2).

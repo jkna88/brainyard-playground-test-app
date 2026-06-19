@@ -9,9 +9,11 @@ interface ChatInputProps {
   attach?: boolean;
   attachDisabled?: boolean;
   onAttachChange?: (checked: boolean) => void;
+  loading?: boolean;
+  onStop?: () => void;
 }
 
-export default function ChatInput({ onSend, disabled, placeholder, attach, attachDisabled, onAttachChange }: ChatInputProps) {
+export default function ChatInput({ onSend, disabled, placeholder, attach, attachDisabled, onAttachChange, loading, onStop }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const maxChars = 4000;
@@ -103,20 +105,32 @@ export default function ChatInput({ onSend, disabled, placeholder, attach, attac
             <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Attach</span>
           </label>
         )}
-        <button
-          onClick={handleSend}
-          disabled={!canSend}
-          className={`shrink-0 p-3 rounded-xl transition-all duration-200 ${
-            canSend
-              ? 'bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 active:scale-95'
-              : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
-          }`}
-          title="Send message (Enter)"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m-7-7l7 7" />
-          </svg>
-        </button>
+        {loading && onStop ? (
+          <button
+            onClick={onStop}
+            className="shrink-0 p-3 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-md shadow-red-600/20 hover:shadow-lg hover:shadow-red-600/30 active:scale-95 transition-all duration-200"
+            title="Stop generating"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+        ) : (
+          <button
+            onClick={handleSend}
+            disabled={!canSend}
+            className={`shrink-0 p-3 rounded-xl transition-all duration-200 ${
+              canSend
+                ? 'bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 active:scale-95'
+                : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
+            }`}
+            title="Send message (Enter)"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m-7-7l7 7" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="pb-1.5 text-center">
         <span className="text-[10px] text-zinc-400 dark:text-zinc-600">
