@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useReducer, useCallback, useEffect, useState, useRef } from 'react';
 import { chatReducer, getInitialState } from '@/lib/chat-store';
 import { Session, BySessionRow, ActivityItem } from '@/types/chat';
@@ -173,7 +174,7 @@ export default function ChatPage() {
 
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 130000);
+        const timeoutId = setTimeout(() => controller.abort(), 310000);
 
         const res = await fetch('/api/chat', {
           method: 'POST',
@@ -303,6 +304,18 @@ export default function ChatPage() {
 
       {/* Main content area with glassmorphism effect */}
       <div className="relative flex flex-col h-full max-w-4xl mx-auto w-full bg-white/60 dark:bg-zinc-900/60 backdrop-blur-sm shadow-xl shadow-zinc-900/5 border-x border-zinc-200/50 dark:border-zinc-800/50">
+        {/* Back to main page */}
+        <div className="flex items-center px-4 py-2 border-b border-zinc-200/50 dark:border-zinc-800/50 bg-white/40 dark:bg-zinc-900/40">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-600 hover:text-blue-600 dark:text-zinc-300 dark:hover:text-blue-400 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            메인 페이지로
+          </Link>
+        </div>
         <SessionSelector
           sessions={state.sessions}
           activeId={state.activeSessionId}

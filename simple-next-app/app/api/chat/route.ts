@@ -6,7 +6,7 @@ import { askOverSocket } from '@/lib/ask-socket';
 
 const execFileAsync = promisify(execFile);
 
-const TURN_TIMEOUT_MS = 120000;
+const TURN_TIMEOUT_MS = 300000;
 
 export async function POST(request: NextRequest) {
   const { message, attach, sessionId } = await request.json();
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     const { stdout } = await execFileAsync(
       BY_BIN,
       ['ask', '-p', 'free-llm', '-m', 'auto', '--json', '--', question],
-      { timeout: 130000, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 },
+      { timeout: 310000, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 },
     );
     console.log(`Chat API: by ask completed in ${Date.now() - startTime}ms (free prompt)`);
 

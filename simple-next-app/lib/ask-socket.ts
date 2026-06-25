@@ -69,7 +69,7 @@ export interface StatusReply {
 export async function askOverSocket(
   socketPath: string,
   question: string,
-  timeoutMs = 120000,
+  timeoutMs = 300000,
 ): Promise<AskReply> {
   const req = `{:op :ask :question "${escapeEdnString(question)}" :timeout-ms ${Math.round(timeoutMs)}}`;
   // Give the socket read a margin beyond the server-side turn cap.
