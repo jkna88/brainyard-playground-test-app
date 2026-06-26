@@ -52,16 +52,16 @@ export async function POST(request: NextRequest) {
 
     // A session needs a live OWNER process to be attachable. `by run` is that
     // owner — an interactive TUI that blocks for its whole lifetime, so we can't
-    // await it. tmux supplies the PTY it needs and daemonizes it: `new-session -d`
+    // await it. tmux supplies the PTY it needs and daemonizes it: `new-window -t brainyard`
     // returns immediately while `by run` keeps running as the session owner.
     const before = new Set((await listLiveSessions()).map((s) => s['session-id']));
 
     const cwd = process.cwd();
     const tmuxName = `by-chat-${Date.now()}`;
-    const ownerCmd = `${shq(BY_BIN)} run --agent coact-agent --working-dir ${shq(cwd)}`;
+    const ownerCmd = `env -u BY_RESUME_LATEST ${shq(BY_BIN)} run --agent coact-agent --working-dir ${shq(cwd)}`;
     await execFileAsync(
       'tmux',
-      ['new-session', '-d', '-s', tmuxName, ownerCmd],
+      ['new-window', '-d', '-t', 'brainyard', '-n', tmuxName, ownerCmd],
       { timeout: 10000, encoding: 'utf-8' }
     );
 
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
     if (!created) {
       // Owner failed to come online — don't leak the tmux session.
-      await execFileAsync('tmux', ['kill-session', '-t', tmuxName], { timeout: 5000 }).catch(() => {});
+      await execFileAsync('tmux', ['kill-window', '-t', `brainyard:${tmuxName}`], { timeout: 5000 }).catch(() => {});
       throw new Error('Session owner did not come online in time');
     }
 

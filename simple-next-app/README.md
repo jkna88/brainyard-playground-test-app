@@ -112,3 +112,27 @@ types/chat.ts                  # Session, Message, BySessionRow
 Because the server launches `by run` under tmux, this app must run on a host where both `by`
 and `tmux` are installed and on the server process's `PATH` (set `BY_BIN` if needed). It does
 **not** run on serverless platforms that disallow long-lived child processes.
+
+## Testing
+
+Web UI tests use the **`agent-browser` CLI** (headless Chromium) — not Playwright.
+`agent-browser` is pre-installed in the Brainyard Playground container (v0.30.1)
+and is also available via `npm install -g agent-browser`.
+
+### Basic test workflow
+
+```bash
+# 1. Ensure the dev server is running
+npm run dev
+
+# 2. Open the chat page in headless Chrome
+agent-browser open http://localhost:3000/chat
+
+# 3. Inspect the page with an accessibility snapshot
+agent-browser snapshot
+
+# 4. Click an element by its `ref` (shown in snapshot output)
+agent-browser click @e3
+
+# 5. Evaluate JavaScript in the page context
+agent-browser eval "document.querySelector('[role=alert]')?.innerText"

@@ -254,9 +254,24 @@ export default function ChatPage() {
     }
   }, [state.sessions.length, showToast]);
 
-  const handleDeleteSession = useCallback((id: string) => {
-    dispatch({ type: 'DELETE_SESSION', id });
-  }, []);
+  const handleDeleteSession = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/sessions/${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        throw new Error('Failed to delete session via API');
+      }
+      const data: { sessions?: BySessionRow[] } = await res.json();
+      if (data.sessions) {
+        dispatch({ type: 'SET_SESSIONS', sessions: data.sessions.map(mapSession) });
+        showToast('Session deleted', 'success');
+      }
+    } catch {
+      dispatch({ type: 'DELETE_SESSION', id });
+      showToast('Failed to delete session', 'error');
+    }
+  }, [showToast]);
 
   const currentMessages = state.activeSessionId
     ? state.messages[state.activeSessionId] || []
@@ -273,6 +288,7 @@ export default function ChatPage() {
       {/* Toast notification */}
       {toastMessage && (
         <div
+          role="alert"
           className={`fixed top-4 right-4 z-50 max-w-sm px-4 py-3 rounded-xl shadow-lg border transition-all duration-300 animate-in slide-in-from-top-2 ${
             toastType === 'error'
               ? 'bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/60 dark:to-red-900/40 border-red-200 dark:border-red-800/60 text-red-800 dark:text-red-200 shadow-red-500/10'
