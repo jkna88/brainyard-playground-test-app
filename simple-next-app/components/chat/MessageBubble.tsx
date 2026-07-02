@@ -9,6 +9,8 @@ interface MessageBubbleProps {
   message: Message;
   onRetry?: () => void;
   onRemember?: () => void;
+  onTrajectory?: () => void;
+  onMemory?: () => void;
 }
 
 function UserAvatar() {
@@ -29,7 +31,7 @@ function AssistantAvatar() {
   );
 }
 
-export default function MessageBubble({ message, onRetry, onRemember }: MessageBubbleProps) {
+export default function MessageBubble({ message, onRetry, onRemember, onTrajectory, onMemory }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isError = message.role === 'error' || message.content.startsWith('⚠️');
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
@@ -146,6 +148,28 @@ export default function MessageBubble({ message, onRetry, onRemember }: MessageB
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                 </svg>
               )}
+            </button>
+          )}
+          {onTrajectory && (
+            <button
+              onClick={onTrajectory}
+              className="opacity-0 group-hover:opacity-100 transition-all duration-200 text-zinc-400 hover:text-blue-500 hover:scale-110 active:scale-95"
+              title="View this turn's trajectory"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </button>
+          )}
+          {onMemory && (
+            <button
+              onClick={onMemory}
+              className="opacity-0 group-hover:opacity-100 transition-all duration-200 text-zinc-400 hover:text-violet-500 hover:scale-110 active:scale-95"
+              title="View memory status"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2 1.5 3 4 3h8c2.5 0 4-1 4-3V7M4 7c0-2 1.5-3 4-3h8c2.5 0 4 1 4 3M4 7c0 2 1.5 3 4 3h8c2.5 0 4-1 4-3" />
+              </svg>
             </button>
           )}
           {isError && onRetry && (

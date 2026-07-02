@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { useReducer, useCallback, useEffect, useState, useRef } from 'react';
 import { chatReducer, getInitialState } from '@/lib/chat-store';
-import { Session, BySessionRow, ActivityItem } from '@/types/chat';
+import { Session, BySessionRow, ActivityItem, Message, TrajectoryTurn, MemoryStatus, MemoryTurn } from '@/types/chat';
 import SessionSelector from '@/components/chat/SessionSelector';
 import ChatContainer from '@/components/chat/ChatContainer';
 import ChatInput from '@/components/chat/ChatInput';
+import TrajectoryModal from '@/components/chat/TrajectoryModal';
+import MemoryModal from '@/components/chat/MemoryModal';
 
 function mapSession(s: BySessionRow): Session {
   return {
@@ -31,6 +33,15 @@ export default function ChatPage() {
   const [sessionStatus, setSessionStatus] = useState<{ state?: string; model?: string; pendingTurns?: number } | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [attachSyncedFor, setAttachSyncedFor] = useState<string>('');
+  const [trajectoryOpen, setTrajectoryOpen] = useState(false);
+  const [trajectoryTurn, setTrajectoryTurn] = useState<TrajectoryTurn | null>(null);
+  const [trajectoryLoading, setTrajectoryLoading] = useState(false);
+  const [trajectoryError, setTrajectoryError] = useState<string | null>(null);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [memoryStatus, setMemoryStatus] = useState<MemoryStatus | null>(null);
+  const [memorySelectedTurn, setMemorySelectedTurn] = useState<MemoryTurn | null>(null);
+  const [memoryLoading, setMemoryLoading] = useState(false);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = useCallback((msg: string, type: 'error' | 'success' = 'error') => {
@@ -145,6 +156,94 @@ export default function ChatPage() {
       showToast(err instanceof Error ? err.message : 'Failed to save memory', 'error');
     }
   }, [state.activeSessionId, canAttach, showToast]);
+
+  // Open the trajectory modal for a specific assistant turn. The trajectory.edn
+  // records one entry per turn in order; we locate the entry for this bubble by
+  // exact answer match, else the preceding user question, else positional index
+  // among assistant messages (Nth assistant bubble ⇒ Nth turn).
+  const handleTrajectory = useCallback(async (message: Message) => {
+    const sessionId = state.activeSessionId;
+    if (!sessionId) return;
+
+    const msgs = state.messages[sessionId] || [];
+    const msgIdx = msgs.findIndex((m) => m.id === message.id);
+    const assistantOrdinal = msgs.slice(0, msgIdx + 1).filter((m) => m.role === 'assistant').length; // 1-based
+    let precedingQuestion: string | undefined;
+    for (let j = msgIdx - 1; j >= 0; j--) {
+      if (msgs[j].role === 'user') { precedingQuestion = msgs[j].content; break; }
+    }
+
+    setTrajectoryOpen(true);
+    setTrajectoryLoading(true);
+    setTrajectoryError(null);
+    setTrajectoryTurn(null);
+
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/trajectory`);
+      const data: { turns?: TrajectoryTurn[]; error?: string } = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const turns = data.turns || [];
+
+      let match =
+        turns.find((t) => t.answer === message.content) ||
+        (precedingQuestion ? turns.find((t) => t.question === precedingQuestion) : undefined);
+      if (!match) {
+        // Positional fallback: align the Nth assistant bubble with the Nth-from-last
+        // turn, tolerating turns that predate this browser's message history.
+        const offset = turns.length - assistantOrdinal;
+        match = offset >= 0 ? turns[offset] : turns[turns.length - 1];
+      }
+
+      setTrajectoryTurn(match ?? null);
+    } catch (err) {
+      setTrajectoryError(err instanceof Error ? err.message : 'Failed to load trajectory');
+    } finally {
+      setTrajectoryLoading(false);
+    }
+  }, [state.activeSessionId, state.messages]);
+
+  // Open the memory modal for a specific turn: per-turn episodes (THIS TURN),
+  // session-level stats, and user-level stats read from the session's memory DB.
+  // The turn is located like the trajectory view — by the preceding user
+  // question, else positional ordinal among assistant messages.
+  const handleMemory = useCallback(async (message: Message) => {
+    const sessionId = state.activeSessionId;
+    if (!sessionId) return;
+
+    const msgs = state.messages[sessionId] || [];
+    const msgIdx = msgs.findIndex((m) => m.id === message.id);
+    const assistantOrdinal = msgs.slice(0, msgIdx + 1).filter((m) => m.role === 'assistant').length; // 1-based
+    let precedingQuestion: string | undefined;
+    for (let j = msgIdx - 1; j >= 0; j--) {
+      if (msgs[j].role === 'user') { precedingQuestion = msgs[j].content; break; }
+    }
+
+    setMemoryOpen(true);
+    setMemoryLoading(true);
+    setMemoryError(null);
+    setMemoryStatus(null);
+    setMemorySelectedTurn(null);
+
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/memory`);
+      const data: MemoryStatus & { error?: string } = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setMemoryStatus(data);
+
+      const turns = data.turns || [];
+      let match =
+        (precedingQuestion ? turns.find((t) => t.question === precedingQuestion) : undefined);
+      if (!match && turns.length) {
+        const offset = turns.length - assistantOrdinal; // tolerate turns predating browser history
+        match = offset >= 0 ? turns[offset] : turns[turns.length - 1];
+      }
+      setMemorySelectedTurn(match ?? null);
+    } catch (err) {
+      setMemoryError(err instanceof Error ? err.message : 'Failed to load memory status');
+    } finally {
+      setMemoryLoading(false);
+    }
+  }, [state.activeSessionId, state.messages]);
 
   const handleSend = useCallback(
     async (content: string) => {
@@ -372,6 +471,8 @@ export default function ChatPage() {
           activeSessionId={state.activeSessionId}
           onRetry={handleRetry}
           onRemember={canAttach ? handleRemember : undefined}
+          onTrajectory={canAttach ? handleTrajectory : undefined}
+          onMemory={canAttach ? handleMemory : undefined}
         />
         <ChatInput
           onSend={handleSend}
@@ -383,6 +484,25 @@ export default function ChatPage() {
           onStop={canAttach ? handleStop : undefined}
         />
       </div>
+
+      {trajectoryOpen && (
+        <TrajectoryModal
+          turn={trajectoryTurn}
+          loading={trajectoryLoading}
+          error={trajectoryError}
+          onClose={() => setTrajectoryOpen(false)}
+        />
+      )}
+
+      {memoryOpen && (
+        <MemoryModal
+          status={memoryStatus}
+          turn={memorySelectedTurn}
+          loading={memoryLoading}
+          error={memoryError}
+          onClose={() => setMemoryOpen(false)}
+        />
+      )}
     </div>
   );
 }

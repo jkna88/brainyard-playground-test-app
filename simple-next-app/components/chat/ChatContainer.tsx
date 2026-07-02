@@ -11,9 +11,11 @@ interface ChatContainerProps {
   activeSessionId: string | null;
   onRetry?: (messageContent: string) => void;
   onRemember?: (messageContent: string) => void;
+  onTrajectory?: (message: Message) => void;
+  onMemory?: (message: Message) => void;
 }
 
-export default function ChatContainer({ messages, loading, activity, activeSessionId, onRetry, onRemember }: ChatContainerProps) {
+export default function ChatContainer({ messages, loading, activity, activeSessionId, onRetry, onRemember, onTrajectory, onMemory }: ChatContainerProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -94,6 +96,8 @@ export default function ChatContainer({ messages, loading, activity, activeSessi
             message={msg}
             onRetry={retryContent ? () => onRetry?.(retryContent) : undefined}
             onRemember={msg.role === 'assistant' && onRemember ? () => onRemember(msg.content) : undefined}
+            onTrajectory={msg.role === 'assistant' && onTrajectory ? () => onTrajectory(msg) : undefined}
+            onMemory={msg.role === 'assistant' && onMemory ? () => onMemory(msg) : undefined}
           />
         );
       })}
